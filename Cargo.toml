@@ -1,0 +1,7 @@
+[package]
+name = "base64"
+version = "0.1.0"
+authors = ["Li Ge <lige@yahoo-inc.com>"]
+
+[dependencies]
+getopts = "0.2"
