@@ -2,7 +2,6 @@ use std::io::stdin;
 use std::io::stdout;
 use std::io::Read;
 use std::io::Write;
-use std::result;
 use std::env;
 extern crate getopts;
 use getopts::Options;
@@ -12,11 +11,11 @@ fn encode_byte_0(mapping: &[u8], input_buf: &[u8; 3]) -> u8 {
 }
 
 fn encode_byte_1(mapping: &[u8], input_buf: &[u8; 3]) -> u8 {
-  mapping[ ( ((input_buf[0] << 6) >> 2) | (input_buf[1] >> 4) ) as usize ]
+  mapping[ ( ((input_buf[0] & 0b0000_00_11) << 4) | (input_buf[1] >> 4) ) as usize ]
 }
 
 fn encode_byte_2(mapping: &[u8], input_buf: &[u8; 3]) -> u8 {
-  mapping[ ( ((input_buf[1] << 4) >> 2) | (input_buf[2] >> 6) ) as usize ]
+  mapping[ ( ((input_buf[1] & 0b0000_11_11) << 2) | (input_buf[2] >> 6) ) as usize ]
 }
 
 fn encode_byte_3(mapping: &[u8], input_buf: &[u8; 3]) -> u8 {
@@ -24,7 +23,7 @@ fn encode_byte_3(mapping: &[u8], input_buf: &[u8; 3]) -> u8 {
 }
 
 fn encode<From: Read, To: Write>(
-  mut from: From, mut to: To, mapping: &[u8]) -> std::io::Result<()> {
+  from: From, mut to: To, mapping: &[u8]) {
   // Foreach 3 bytes read:
   //   - Encode these 3 bytes to 4 base64 bytes
   //   - Write to stdout
@@ -41,8 +40,6 @@ fn encode<From: Read, To: Write>(
   let mut input_buf: [u8; 3] = [0; 3];
   let mut output_buf: [u8; 4] = [0; 4];
   let mut input_index: usize = 0;
-  let pad_one = "=".as_bytes();
-  let pad_two = "==".as_bytes();
   let new_line = "\n".as_bytes();
 
   for byte in from.bytes() {
@@ -53,7 +50,7 @@ fn encode<From: Read, To: Write>(
       output_buf[1] = encode_byte_1(mapping, &input_buf);
       output_buf[2] = encode_byte_2(mapping, &input_buf);
       output_buf[3] = encode_byte_3(mapping, &input_buf);
-      try!(to.write(&output_buf));
+      to.write(&output_buf).unwrap();
       input_index = 0;
     }
   }
@@ -63,20 +60,19 @@ fn encode<From: Read, To: Write>(
     input_buf[1] = 0;
     output_buf[0] = encode_byte_0(mapping, &input_buf);
     output_buf[1] = encode_byte_1(mapping, &input_buf);
-    try!(to.write(&output_buf[0..2]));
-    try!(to.write(&pad_two));
+    output_buf[2] = '=' as u8;
+    output_buf[3] = '=' as u8;
+    to.write(&output_buf).unwrap();
   } else if input_index == 2 {
     input_buf[2] = 0;
     output_buf[0] = encode_byte_0(mapping, &input_buf);
     output_buf[1] = encode_byte_1(mapping, &input_buf);
     output_buf[2] = encode_byte_2(mapping, &input_buf);
-    output_buf[3] = encode_byte_3(mapping, &input_buf);
-    try!(to.write(&output_buf[0..3]));
-    try!(to.write(&pad_one));
+    output_buf[3] = '=' as u8;
+    to.write(&output_buf).unwrap();
   }
 
-  try!(to.write(&new_line));
-  Ok(())
+  to.write(&new_line).unwrap();
 }
 
 fn decode() {

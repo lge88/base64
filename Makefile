@@ -1,11 +1,20 @@
-# TEST_INPUT_DIR='/Users/lige/.m2/repository/com/cenqua/clover/clover/3.0.2/clover-3.0.2.jar'
 STD_BASE64=/usr/bin/base64
 MY_BASE64=target/release/base64
+
 TEST_INPUT_DIR=test_input
 TEST_OUTPUT_DIR=test_output
+
 TEST_CASES=11m_no_padding.bin
 TEST_CASES+=11m_pad_1.bin
 TEST_CASES+=11m_pad_2.bin
+
+exe:
+	cargo build --release
+
+test_output:
+	mkdir -p test_output
+	rm -fr test_output/*
+	cp $(TEST_INPUT_DIR)/* $(TEST_OUTPUT_DIR)
 
 test: exe test_output
 	$(foreach t,$(TEST_CASES),\
@@ -14,12 +23,12 @@ test: exe test_output
 		diff $(TEST_OUTPUT_DIR)/std_$(t).base64 $(TEST_OUTPUT_DIR)/my_$(t).base64; \
 	)
 
-test_output:
-	mkdir -p test_output
-	rm -fr test_output/*
-	cp $(TEST_INPUT_DIR)/* $(TEST_OUTPUT_DIR)
+random_input: test_output
+	dd if=/dev/urandom of=$(TEST_OUTPUT_DIR)/random_bytes_100m.bin bs=512 count=204800
 
-exe:
-	cargo build --release
+bench: random_input
+	time $(MY_BASE64) <$(TEST_OUTPUT_DIR)/random_bytes_100m.bin >$(TEST_OUTPUT_DIR)/my_random_bytes_100m.bin.base64
+	time $(STD_BASE64) <$(TEST_OUTPUT_DIR)/random_bytes_100m.bin >$(TEST_OUTPUT_DIR)/std_random_bytes_100m.bin.base64
+	diff $(TEST_OUTPUT_DIR)/my_random_bytes_100m.bin.base64 $(TEST_OUTPUT_DIR)/std_random_bytes_100m.bin.base64
 
-.PHONY: test exe test_output
+.PHONY: test exe test_output random_input bench
